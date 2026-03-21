@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -12,13 +12,13 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+    <!-- <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize> -->
     <!-- CA1416: Suppress platform-specific API warnings - this app targets Windows only -->
     <NoWarn>CA1416;CS8981</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.5" />
+    <!-- <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.5" /> -->
     <PackageReference Include="System.IO.Ports" Version="10.0.5" />
     <PackageReference Include="ZedGraph" Version="5.2.1" />
   </ItemGroup>
