@@ -58,5 +58,40 @@ namespace IES_2.Properties {
                 this["compatEnabled"] = value;
             }
         }
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool bleModeEnabled {
+            get {
+                return ((bool)(this["bleModeEnabled"]));
+            }
+            set {
+                this["bleModeEnabled"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string bleDeviceAddress {
+            get {
+                return ((string)(this["bleDeviceAddress"]));
+            }
+            set {
+                this["bleDeviceAddress"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string bleDeviceName {
+            get {
+                return ((string)(this["bleDeviceName"]));
+            }
+            set {
+                this["bleDeviceName"] = value;
+            }
+        }
     }
 }

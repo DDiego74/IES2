@@ -1,4 +1,4 @@
-﻿using System.IO.Ports;
+﻿using IES_2;
 using System.Threading;
 using IES_2.Res;
 
@@ -144,8 +144,8 @@ namespace IES_2.ECU
             if (CODRIC.Substring(0, 6) == "616000" || CODRIC.Substring(0, 6) == "616002") return true;
             return false;
         }
-        public iaw04k(ref SerialPort sPort)
-            : base(ref sPort)
+        public iaw04k(ISerialTransport sPort)
+            : base(sPort)
         {
             engineData = new dataElement[] {
                 new dataElement(lang.PERIODE, lang.rpm, "0", new byte[] { 0x01, 0x02 }, new dataElement.ValDecode(PERIODE)),

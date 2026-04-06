@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using System.IO.Ports;
 using System.Threading;
+using IES_2;
 using IES_2.Res;
 
 // At 900 RPM a 4 cilinder 4 stroke engine makes 900 RPM * 2 strokes/revolution * 60 minutes in one hour = 108,000 strokes/hour.
@@ -25,7 +25,7 @@ namespace IES_2.ECU
         public byte[] immoErrReq;
         public bool hasIMMO;
         public abstract string GetCarModel();
-        protected SerialPort sPort;
+        protected ISerialTransport sPort;
 
         //public static bool CheckISO() { return false; }
         //public static bool CheckCODRIC() { return false; }
@@ -40,7 +40,7 @@ namespace IES_2.ECU
         //public const string longName = null;
         //public static string[,] cars;
         //public static string GetCars() { return ""; } 
-        public static bool InitPasvDiag(ref SerialPort serial)
+        public static bool InitPasvDiag(ISerialTransport serial)
         {
             if (!serial.IsOpen) return false;
             serial.BaudRate = initBaud;
@@ -70,7 +70,7 @@ namespace IES_2.ECU
             sPort.BaudRate = commBaud;
             return true;
         }
-        public static bool Query(ref SerialPort serial, byte qReq, out byte qResp)
+        public static bool Query(ISerialTransport serial, byte qReq, out byte qResp)
         {
             serial.DiscardInBuffer();
             serial.Write(new byte[] { qReq }, 0, 1);
@@ -102,11 +102,11 @@ namespace IES_2.ECU
             }
             return true;
         }
-        public static void SetReadTimeout(ref SerialPort serial, int time)
+        public static void SetReadTimeout(ISerialTransport serial, int time)
         {
             serial.ReadTimeout = time;
         }
-        public static string ReadISO(ref SerialPort serial)
+        public static string ReadISO(ISerialTransport serial)
         {
             if (!serial.IsOpen) return null;
             byte[] ReqISO = new byte[] { 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F };
@@ -116,7 +116,7 @@ namespace IES_2.ECU
             foreach (byte Request in ReqISO)
             {
                 Thread.Sleep(5);
-                if (!Query(ref serial, Request, out buffer)) return null;
+                if (!Query(serial, Request, out buffer)) return null;
                 if ((i == 0) & (buffer != 0x55)) // Sync byte error - probably IAW-16F
                 {
                     ISO = "55D085??????";
@@ -129,7 +129,7 @@ namespace IES_2.ECU
                 ISO += b.ToString("X2");
             return ISO;
         }
-        public static string ReadCODRIC(ref SerialPort serial)
+        public static string ReadCODRIC(ISerialTransport serial)
         {
             if (!serial.IsOpen) return null;
             byte[] ReqCodRic = new byte[] { 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20 }; // CODRIC (Spare Part Code) request sequence
@@ -138,7 +138,7 @@ namespace IES_2.ECU
             foreach (byte Request in ReqCodRic)
             {
                 Thread.Sleep(5);
-                if (!Query(ref serial, Request, out CODRICcod[i++])) return null;
+                if (!Query(serial, Request, out CODRICcod[i++])) return null;
             }
             CODRIC = "";
             foreach (char c in CODRICcod)
@@ -147,11 +147,11 @@ namespace IES_2.ECU
         }
         public virtual string ReadISO()
         {
-            return ReadISO(ref sPort);
+            return ReadISO(sPort);
         }
         public virtual string ReadCODRIC()
         {
-            return ReadCODRIC(ref sPort);
+            return ReadCODRIC(sPort);
         }
         //public virtual string ReadISO()
         //{
@@ -192,12 +192,12 @@ namespace IES_2.ECU
         //        CODRIC += c;
         //    return CODRIC;
         //}
-        public static bool CheckCODE(ref SerialPort serial)
+        public static bool CheckCODE(ISerialTransport serial)
         {
             byte resp;
-            return Query(ref serial, 0x71, out resp);
+            return Query(serial, 0x71, out resp);
         }
-        public ecu(ref SerialPort sPort)
+        public ecu(ISerialTransport sPort)
         {
             this.sPort = sPort;
         }
