@@ -61,30 +61,30 @@ namespace IES_2
 
         private async Task OpenAsync()
         {
-            device = await BluetoothLEDevice.FromBluetoothAddressAsync(bluetoothAddress);
+            device = await BluetoothLEDevice.FromBluetoothAddressAsync(bluetoothAddress).AsTask().ConfigureAwait(false);
             if (device == null)
                 throw new IOException($"Impossibile connettersi al dispositivo BLE: {PortName}");
 
             GattCharacteristic foundTx = null, foundRx = null;
 
             // --- Try Nordic NUS service ---
-            var nusSvcResult = await device.GetGattServicesForUuidAsync(NUS_SERVICE, BluetoothCacheMode.Uncached);
+            var nusSvcResult = await device.GetGattServicesForUuidAsync(NUS_SERVICE, BluetoothCacheMode.Uncached).AsTask().ConfigureAwait(false);
             if (nusSvcResult.Status == GattCommunicationStatus.Success && nusSvcResult.Services.Count > 0)
             {
                 var svc = nusSvcResult.Services[0];
-                foundTx = await GetCharacteristicAsync(svc, NUS_TX);
-                foundRx = await GetCharacteristicAsync(svc, NUS_RX);
+                foundTx = await GetCharacteristicAsync(svc, NUS_TX).ConfigureAwait(false);
+                foundRx = await GetCharacteristicAsync(svc, NUS_RX).ConfigureAwait(false);
             }
 
             // --- Fall back to 0xFFF0-based service ---
             if (foundTx == null || foundRx == null)
             {
-                var uartSvcResult = await device.GetGattServicesForUuidAsync(UART_SERVICE, BluetoothCacheMode.Uncached);
+                var uartSvcResult = await device.GetGattServicesForUuidAsync(UART_SERVICE, BluetoothCacheMode.Uncached).AsTask().ConfigureAwait(false);
                 if (uartSvcResult.Status == GattCommunicationStatus.Success && uartSvcResult.Services.Count > 0)
                 {
                     var svc = uartSvcResult.Services[0];
-                    foundTx = await GetCharacteristicAsync(svc, UART_TX);
-                    foundRx = await GetCharacteristicAsync(svc, UART_RX);
+                    foundTx = await GetCharacteristicAsync(svc, UART_TX).ConfigureAwait(false);
+                    foundRx = await GetCharacteristicAsync(svc, UART_RX).ConfigureAwait(false);
                 }
             }
 
@@ -95,7 +95,7 @@ namespace IES_2
 
             // Subscribe to incoming notifications
             var cccdResult = await foundRx.WriteClientCharacteristicConfigurationDescriptorAsync(
-                GattClientCharacteristicConfigurationDescriptorValue.Notify);
+                GattClientCharacteristicConfigurationDescriptorValue.Notify).AsTask().ConfigureAwait(false);
             if (cccdResult != GattCommunicationStatus.Success)
                 throw new IOException("Impossibile attivare le notifiche BLE (CCCD write failed).");
 
@@ -107,7 +107,7 @@ namespace IES_2
 
         private static async Task<GattCharacteristic> GetCharacteristicAsync(GattDeviceService service, Guid uuid)
         {
-            var result = await service.GetCharacteristicsForUuidAsync(uuid, BluetoothCacheMode.Uncached);
+            var result = await service.GetCharacteristicsForUuidAsync(uuid, BluetoothCacheMode.Uncached).AsTask().ConfigureAwait(false);
             if (result.Status == GattCommunicationStatus.Success && result.Characteristics.Count > 0)
                 return result.Characteristics[0];
             return null;
@@ -144,7 +144,7 @@ namespace IES_2
             Array.Copy(buffer, offset, payload, 0, count);
             writer.WriteBytes(payload);
             IBuffer ibuffer = writer.DetachBuffer();
-            var result = await txChar.WriteValueAsync(ibuffer, GattWriteOption.WriteWithoutResponse);
+            var result = await txChar.WriteValueAsync(ibuffer, GattWriteOption.WriteWithoutResponse).AsTask().ConfigureAwait(false);
             if (result != GattCommunicationStatus.Success)
                 throw new IOException("Errore durante la scrittura BLE.");
         }

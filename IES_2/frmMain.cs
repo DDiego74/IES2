@@ -1309,11 +1309,13 @@ namespace IES_2
             if (!string.IsNullOrEmpty(savedAddr) && ulong.TryParse(savedAddr, out ulong addr))
             {
                 string name = Settings.Default.bleDeviceName;
+                if (string.IsNullOrEmpty(name)) name = addr.ToString("X12");
                 activeTransport = new BleSerialTransport(addr, name);
-                // Show the saved device in the list
+                // Register in the found devices dict and display in the list
+                lock (bleDevicesFound) { bleDevicesFound[addr] = name; }
                 dgvBLE.Rows.Clear();
                 DataGridViewRow row = dgvBLE.Rows[dgvBLE.Rows.Add()];
-                row.Cells[0].Value = name + " (salvato)";
+                row.Cells[0].Value = name + " ✓";
                 row.Tag = addr;
                 dgvBLE.Rows[0].Selected = true;
             }
@@ -1381,10 +1383,13 @@ namespace IES_2
             DataGridViewRow row = dgvBLE.Rows[e.RowIndex];
             if (row.Tag == null) return;
 
-            ulong  addr = (ulong)row.Tag;
-            string name = (string)row.Cells[0].Value;
-            // Strip the "(salvato)" suffix if present
-            if (name.EndsWith(" (salvato)")) name = name.Substring(0, name.Length - " (salvato)".Length);
+            ulong addr = (ulong)row.Tag;
+            string name;
+            lock (bleDevicesFound)
+            {
+                if (!bleDevicesFound.TryGetValue(addr, out name))
+                    name = addr.ToString("X12");
+            }
 
             // Close previous BLE transport if open
             if (activeTransport is BleSerialTransport && activeTransport.IsOpen)
