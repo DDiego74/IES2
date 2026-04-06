@@ -997,6 +997,14 @@
         private System.Windows.Forms.DataGridViewTextBoxColumn dataGridViewTextBoxColumn3;
         private System.Windows.Forms.DataGridViewTextBoxColumn dataGridViewTextBoxColumn4;
 
+        // BLE UI controls (created programmatically in InitializeBleUI)
+        private System.Windows.Forms.RadioButton rbCOM;
+        private System.Windows.Forms.RadioButton rbBLE;
+        private System.Windows.Forms.Button btnScanBLE;
+        private System.Windows.Forms.DataGridView dgvBLE;
+        private System.Windows.Forms.DataGridViewTextBoxColumn bleName;
+        private System.Windows.Forms.Panel pnlBLE;
+
     }
 }
 

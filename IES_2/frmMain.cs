@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Text;
 using System.Windows.Forms;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Collections;
 using System.Text.RegularExpressions;
@@ -15,6 +16,7 @@ using ZedGraph;
 using IES_2.Properties;
 using IES_2.Res;
 using IES_2.ECU;
+using Windows.Devices.Bluetooth.Advertisement;
 
 namespace IES_2
 {
@@ -41,6 +43,14 @@ namespace IES_2
         private RedrawGraphCallback RDC;
         private frmOneByte FrmOneByte;
 
+        // Transport abstraction – allows COM port or Bluetooth LE
+        private ISerialTransport activeTransport;
+        private SerialPortTransport comTransport;
+
+        // BLE scanning
+        private BluetoothLEAdvertisementWatcher bleWatcher;
+        private Dictionary<ulong, string> bleDevicesFound;
+
         [DllImport("winmm.dll", EntryPoint = "timeBeginPeriod", SetLastError = true)]
         private static extern uint TimeBeginPeriod(uint uMilliseconds);
 
@@ -58,6 +68,7 @@ namespace IES_2
             t.Start();
             Thread.Sleep(1000);
             InitializeComponent();
+            InitializeBleUI();
             //t.Abort();
 
             FrmOneByte = new frmOneByte();
@@ -324,32 +335,32 @@ namespace IES_2
             {
                 case iaw16f.name:
                     autodetect = false;
-                    ECU = new iaw16f(ref serialPort1);
+                    ECU = new iaw16f(activeTransport);
                     ecuName = iaw16f.longName;
                     break;
                 case iaw18f.name:
                     autodetect = false;
-                    ECU = new iaw18f(ref serialPort1);
+                    ECU = new iaw18f(activeTransport);
                     ecuName = iaw18f.longName;
                     break;
                 case iaw8f_68.name:
                     autodetect = false;
-                    ECU = new iaw8f_68(ref serialPort1);
+                    ECU = new iaw8f_68(activeTransport);
                     ecuName = iaw8f_68.longName;
                     break;
                 case iaw18fd.name:
                     autodetect = false;
-                    ECU = new iaw18fd(ref serialPort1);
+                    ECU = new iaw18fd(activeTransport);
                     ecuName = iaw18fd.longName;
                     break;
                 case iaw04k.name:
                     autodetect = false;
-                    ECU = new iaw04k(ref serialPort1);
+                    ECU = new iaw04k(activeTransport);
                     ecuName = iaw04k.longName;
                     break;
                 case code.name:
                     autodetect = false;
-                    ECU = new code(ref serialPort1);
+                    ECU = new code(activeTransport);
                     ecuName = code.longName;
                     break;
                 case "auto":
@@ -366,15 +377,21 @@ namespace IES_2
             }
             else
             {
+                if (activeTransport == null)
+                {
+                    hideUserMessage();
+                    MessageBox.Show("Selezionare un dispositivo Bluetooth LE prima di connettersi.", "Bluetooth LE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
                 try
                 {
-                    if (!serialPort1.IsOpen)
-                        serialPort1.Open();
+                    if (!activeTransport.IsOpen)
+                        activeTransport.Open();
                 }
                 catch
                 {
                     hideUserMessage();
-                    MessageBox.Show(string.Format(lang.COMopenError, serialPort1.PortName), lang.COMnotValid, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(string.Format(lang.COMopenError, activeTransport.PortName), lang.COMnotValid, MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
                 if (bgwParameters.IsBusy) return;
@@ -392,38 +409,38 @@ namespace IES_2
             {
                 if (IsoReceived & iaw04k.CheckISO())
                 {
-                    ECU = new iaw04k(ref serialPort1);
+                    ECU = new iaw04k(activeTransport);
                     ecuName = iaw04k.longName;
                 }
                 else
                 {
-                    ecu.InitPasvDiag(ref serialPort1);
-                    ecu.ReadCODRIC(ref serialPort1);
+                    ecu.InitPasvDiag(activeTransport);
+                    ecu.ReadCODRIC(activeTransport);
                     if (!IsoReceived)
-                        ecu.ReadISO(ref serialPort1);
+                        ecu.ReadISO(activeTransport);
                     if (iaw18fd.CheckISO())
                     {
-                        ECU = new iaw18fd(ref serialPort1);
+                        ECU = new iaw18fd(activeTransport);
                         ecuName = iaw18fd.longName;
                     }
                     else if (iaw18f.CheckISO())
                     {
-                        ECU = new iaw18f(ref serialPort1);
+                        ECU = new iaw18f(activeTransport);
                         ecuName = iaw18f.longName;
                     }
                     else if (iaw8f_68.CheckISO())
                     {
-                        ECU = new iaw8f_68(ref serialPort1);
+                        ECU = new iaw8f_68(activeTransport);
                         ecuName = iaw8f_68.longName;
                     }
                     else if (iaw16f.CheckISO())
                     {
-                        ECU = new iaw16f(ref serialPort1);
+                        ECU = new iaw16f(activeTransport);
                         ecuName = iaw16f.longName;
                     }
                     else if (iaw04k.CheckISO())
                     {
-                        ECU = new iaw04k(ref serialPort1);
+                        ECU = new iaw04k(activeTransport);
                         ecuName = iaw04k.longName;
                     }
                     else
@@ -442,7 +459,7 @@ namespace IES_2
                 if (!IsoReceived)
                     ECU.ReadISO();
             }
-            ECU.hasIMMO = demo ? true : ecu.CheckCODE(ref serialPort1);
+            ECU.hasIMMO = demo ? true : ecu.CheckCODE(activeTransport);
             lblIsoCode.Text = ecu.ISO != null ? Regex.Replace(ecu.ISO, @"(\w{2})(\w{2})(\w{2})(\w{2})(\w{2})(\w{2})", "$1-$2-$3-$4-$5-$6") : "-";
             lblRepCode.Text = ecu.CODRIC != null ? Regex.Replace(ecu.CODRIC, @"(\w{5})(\w{3})(\w{2})", "$1.$2.$3") : "-";
             lblEcuType.Text = ecuName + (ECU.hasIMMO ? "" : " ECOL");
@@ -513,8 +530,8 @@ namespace IES_2
 
         private void _Disconnected()
         {
-            if (serialPort1.IsOpen)
-                serialPort1.Close();
+            if (activeTransport != null && activeTransport.IsOpen)
+                activeTransport.Close();
             if (ecu.connected)
             {
                 lblIsoCode.Text = "-";
@@ -569,8 +586,8 @@ namespace IES_2
         private void bgwIsoWait_DoWork(object sender, DoWorkEventArgs e)
         {
             BackgroundWorker worker = sender as BackgroundWorker;
-            ecu.SetReadTimeout(ref serialPort1, 1200);
-            serialPort1.BaudRate = ecu.initBaud;
+            ecu.SetReadTimeout(activeTransport, 1200);
+            activeTransport.BaudRate = ecu.initBaud;
             const int wait = 10000; // timeout = 10s
             byte Response;
             bool sync = false;
@@ -586,11 +603,11 @@ namespace IES_2
                     e.Cancel = true;
                     break;
                 }
-                if (serialPort1.BytesToRead == 0)
+                if (activeTransport.BytesToRead == 0)
                     Thread.Sleep(15);
                 else
                 {
-                    Response = (byte)serialPort1.ReadByte();
+                    Response = (byte)activeTransport.ReadByte();
                     if (Response == 0x55)
                     {
                         sync = true;
@@ -608,7 +625,7 @@ namespace IES_2
                         e.Cancel = true;
                         break;
                     }
-                    Response = (byte)serialPort1.ReadByte();
+                    Response = (byte)activeTransport.ReadByte();
                     ISOcod[i++] = Response;
                 }
             }
@@ -649,7 +666,7 @@ namespace IES_2
             int ComErrCnt = 0;
             byte loopCnt = 0;
             bool isEmpty = true;
-            ecu.SetReadTimeout(ref serialPort1, 300);
+            ecu.SetReadTimeout(activeTransport, 300);
             while (!worker.CancellationPending)
             {
                 if ((queryFlag & 1) == 1)
@@ -776,7 +793,7 @@ namespace IES_2
         {
             byte Response = 0;
             // Initialize ADM
-            if (serialPort1.IsOpen)
+            if (activeTransport != null && activeTransport.IsOpen)
             {
                 return ECU.Query(0xAA, out Response);
             }
@@ -787,7 +804,7 @@ namespace IES_2
         {
             byte Response = 0;
             // Finalize ADM
-            if (serialPort1.IsOpen)
+            if (activeTransport != null && activeTransport.IsOpen)
             {
                 if (ECU.Query(0xFF, out Response))
                 {
@@ -803,7 +820,7 @@ namespace IES_2
             while (bgwParameters.IsBusy)
                 Thread.Sleep(250); // Wait for the passive diagnostic loop to exit
             BackgroundWorker worker = sender as BackgroundWorker;
-            ecu.SetReadTimeout(ref serialPort1, 500);
+            ecu.SetReadTimeout(activeTransport, 500);
             testElement Test = (testElement)e.Argument;
             bool timeout = false;
             byte Response = 0;
@@ -830,7 +847,7 @@ namespace IES_2
                 }
             }
             sw.Start();
-            while (serialPort1.BytesToRead == 0 & sw.ElapsedMilliseconds < (Test.TimeOut + 1) * 1000)
+            while (activeTransport.BytesToRead == 0 & sw.ElapsedMilliseconds < (Test.TimeOut + 1) * 1000)
             {
                 if ((worker.CancellationPending == true))
                 {
@@ -840,9 +857,9 @@ namespace IES_2
                 Thread.Sleep(15); // Wait for Test Result Code
             }
             sw.Stop();
-            if (!timeout & !e.Cancel & serialPort1.BytesToRead != 0) // Test completed
+            if (!timeout & !e.Cancel & activeTransport.BytesToRead != 0) // Test completed
             {
-                Response = (byte)serialPort1.ReadByte();
+                Response = (byte)activeTransport.ReadByte();
                 // Test Complete
                 e.Result = Response;
                 Thread.Sleep(15);
@@ -977,6 +994,7 @@ namespace IES_2
             {
                 string selPort = (string)dgv.Rows[e.RowIndex].Tag;
                 serialPort1.PortName = selPort;
+                comTransport.PortName = selPort;
                 Settings.Default.interfacePort = selPort;
                 Settings.Default.Save();
             }
@@ -1125,6 +1143,11 @@ namespace IES_2
         {
             this.Activate();
             CreateGraph();
+
+            // Initialize COM transport wrapper
+            comTransport = new SerialPortTransport(serialPort1);
+            activeTransport = comTransport;
+
             string[] lPorts = System.IO.Ports.SerialPort.GetPortNames();
             Array.Sort(lPorts);
             dgvCOM.Rows.Clear();
@@ -1161,6 +1184,11 @@ namespace IES_2
             }
             cbLOG.Checked = Settings.Default.logEnabled;
             cbCompat.Checked = Settings.Default.compatEnabled;
+
+            // Restore BLE mode if previously selected
+            if (Settings.Default.bleModeEnabled)
+                rbBLE.Checked = true; // triggers rbBLE_CheckedChanged which sets activeTransport
+
             ecuList = new string[,] { { "auto", lang.autodetect, code.GetCars() }, { iaw16f.name, iaw16f.longName, iaw16f.GetCars() }, { iaw18f.name, iaw18f.longName, iaw18f.GetCars() }, { iaw18fd.name, iaw18fd.longName, iaw18fd.GetCars() }, { iaw8f_68.name, iaw8f_68.longName, iaw8f_68.GetCars() }, { iaw04k.name, iaw04k.longName, iaw04k.GetCars() }, { code.name, code.longName, code.GetCars() } };
             for (int i = 0; i < ecuList.GetLength(0) ; i++)
             {
@@ -1176,6 +1204,199 @@ namespace IES_2
             Settings.Default.logEnabled = cbLOG.Checked;
             Settings.Default.Save();
         }
+
+        #region Bluetooth LE UI
+
+        private void InitializeBleUI()
+        {
+            bleDevicesFound = new Dictionary<ulong, string>();
+
+            // --- Radio button panel (COM vs BLE toggle) ---
+            Panel pnlConnectionMode = new Panel();
+            pnlConnectionMode.Height = 28;
+            pnlConnectionMode.Dock = DockStyle.Top;
+
+            rbCOM = new RadioButton();
+            rbCOM.Text = "COM";
+            rbCOM.AutoSize = true;
+            rbCOM.Checked = true;
+            rbCOM.Location = new Point(4, 5);
+
+            rbBLE = new RadioButton();
+            rbBLE.Text = "Bluetooth LE";
+            rbBLE.AutoSize = true;
+            rbBLE.Location = new Point(78, 5);
+
+            pnlConnectionMode.Controls.Add(rbCOM);
+            pnlConnectionMode.Controls.Add(rbBLE);
+
+            // --- BLE device list panel (initially hidden) ---
+            pnlBLE = new Panel();
+            pnlBLE.Dock = DockStyle.Fill;
+            pnlBLE.Visible = false;
+
+            btnScanBLE = new Button();
+            btnScanBLE.Text = "Scansiona BLE";
+            btnScanBLE.Dock = DockStyle.Bottom;
+            btnScanBLE.Height = 26;
+
+            dgvBLE = new DataGridView();
+            dgvBLE.Dock = DockStyle.Fill;
+            dgvBLE.AllowUserToAddRows = false;
+            dgvBLE.AllowUserToDeleteRows = false;
+            dgvBLE.AllowUserToResizeColumns = false;
+            dgvBLE.AllowUserToResizeRows = false;
+            dgvBLE.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            dgvBLE.ColumnHeadersVisible = false;
+            dgvBLE.MultiSelect = false;
+            dgvBLE.ReadOnly = true;
+            dgvBLE.RowHeadersVisible = false;
+            dgvBLE.RowHeadersWidthSizeMode = DataGridViewRowHeadersWidthSizeMode.DisableResizing;
+            dgvBLE.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvBLE.EditMode = DataGridViewEditMode.EditProgrammatically;
+            bleName = new DataGridViewTextBoxColumn();
+            bleName.Name = "bleName";
+            bleName.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            bleName.ReadOnly = true;
+            dgvBLE.Columns.Add(bleName);
+
+            pnlBLE.Controls.Add(dgvBLE);
+            pnlBLE.Controls.Add(btnScanBLE);
+
+            // --- Integrate into existing layout ---
+            // Create a container panel to hold both dgvCOM and pnlBLE (toggled by visibility)
+            Panel pnlContent = new Panel();
+            pnlContent.Dock = DockStyle.Fill;
+            tableLayoutPanel7.Controls.Remove(dgvCOM);
+            dgvCOM.Dock = DockStyle.Fill;
+            pnlContent.Controls.Add(dgvCOM);
+            pnlContent.Controls.Add(pnlBLE);
+            tableLayoutPanel7.Controls.Add(pnlContent, 0, 0);
+
+            // Ensure tableLayoutPanel7 fills groupBox2 beneath the radio button row
+            tableLayoutPanel7.Dock = DockStyle.Fill;
+
+            // Add the radio button panel at the top of groupBox2
+            groupBox2.Controls.Add(pnlConnectionMode);
+
+            // --- Wire up events AFTER all controls are created ---
+            rbCOM.CheckedChanged += new EventHandler(rbCOM_CheckedChanged);
+            rbBLE.CheckedChanged += new EventHandler(rbBLE_CheckedChanged);
+            btnScanBLE.Click += new EventHandler(btnScanBLE_Click);
+            dgvBLE.CellClick += new DataGridViewCellEventHandler(dgvBLE_CellClick);
+        }
+
+        private void rbCOM_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!rbCOM.Checked) return;
+            pnlBLE.Visible = false;
+            dgvCOM.Visible = true;
+            if (comTransport != null)
+                activeTransport = comTransport;
+            Settings.Default.bleModeEnabled = false;
+            Settings.Default.Save();
+        }
+
+        private void rbBLE_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!rbBLE.Checked) return;
+            dgvCOM.Visible = false;
+            pnlBLE.Visible = true;
+            Settings.Default.bleModeEnabled = true;
+            Settings.Default.Save();
+            // Restore previously selected BLE device if one was saved
+            string savedAddr = Settings.Default.bleDeviceAddress;
+            if (!string.IsNullOrEmpty(savedAddr) && ulong.TryParse(savedAddr, out ulong addr))
+            {
+                string name = Settings.Default.bleDeviceName;
+                activeTransport = new BleSerialTransport(addr, name);
+                // Show the saved device in the list
+                dgvBLE.Rows.Clear();
+                DataGridViewRow row = dgvBLE.Rows[dgvBLE.Rows.Add()];
+                row.Cells[0].Value = name + " (salvato)";
+                row.Tag = addr;
+                dgvBLE.Rows[0].Selected = true;
+            }
+            else
+            {
+                activeTransport = null;
+            }
+        }
+
+        private void btnScanBLE_Click(object sender, EventArgs e)
+        {
+            if (bleWatcher != null && bleWatcher.Status == BluetoothLEAdvertisementWatcherStatus.Started)
+            {
+                bleWatcher.Stop();
+                btnScanBLE.Text = "Scansiona BLE";
+                return;
+            }
+
+            bleDevicesFound.Clear();
+            dgvBLE.Rows.Clear();
+            btnScanBLE.Text = "Ferma scansione";
+
+            bleWatcher = new BluetoothLEAdvertisementWatcher();
+            bleWatcher.ScanningMode = BluetoothLEScanningMode.Active;
+            bleWatcher.Received += BleWatcher_Received;
+            bleWatcher.Stopped  += BleWatcher_Stopped;
+            bleWatcher.Start();
+        }
+
+        private void BleWatcher_Received(BluetoothLEAdvertisementWatcher sender,
+                                          BluetoothLEAdvertisementReceivedEventArgs args)
+        {
+            ulong addr = args.BluetoothAddress;
+            string name = args.Advertisement.LocalName;
+            if (string.IsNullOrWhiteSpace(name))
+                name = addr.ToString("X12");
+
+            bool isNew;
+            lock (bleDevicesFound)
+            {
+                isNew = !bleDevicesFound.ContainsKey(addr);
+                if (isNew) bleDevicesFound[addr] = name;
+            }
+
+            if (isNew)
+            {
+                BeginInvoke((Action)(() =>
+                {
+                    DataGridViewRow row = dgvBLE.Rows[dgvBLE.Rows.Add()];
+                    row.Cells[0].Value = name;
+                    row.Tag = addr;
+                }));
+            }
+        }
+
+        private void BleWatcher_Stopped(BluetoothLEAdvertisementWatcher sender,
+                                         BluetoothLEAdvertisementWatcherStoppedEventArgs args)
+        {
+            BeginInvoke((Action)(() => btnScanBLE.Text = "Scansiona BLE"));
+        }
+
+        private void dgvBLE_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+            DataGridViewRow row = dgvBLE.Rows[e.RowIndex];
+            if (row.Tag == null) return;
+
+            ulong  addr = (ulong)row.Tag;
+            string name = (string)row.Cells[0].Value;
+            // Strip the "(salvato)" suffix if present
+            if (name.EndsWith(" (salvato)")) name = name.Substring(0, name.Length - " (salvato)".Length);
+
+            // Close previous BLE transport if open
+            if (activeTransport is BleSerialTransport && activeTransport.IsOpen)
+                activeTransport.Close();
+
+            activeTransport = new BleSerialTransport(addr, name);
+            Settings.Default.bleDeviceAddress = addr.ToString();
+            Settings.Default.bleDeviceName    = name;
+            Settings.Default.Save();
+        }
+
+        #endregion
 
         private void btnGraph_Click(object sender, EventArgs e)
         {
@@ -1377,9 +1598,9 @@ namespace IES_2
                     Application.DoEvents();
                     Thread.Sleep(250); // Wait for the passive diagnostic loop to exit
                 }
-                if (serialPort1.IsOpen)
+                if (activeTransport != null && activeTransport.IsOpen)
                 {
-                    ecu.SetReadTimeout(ref serialPort1, 300);
+                    ecu.SetReadTimeout(activeTransport, 300);
                     // Read Value if available
                     if (Adjust.StatusByte != 0x00)
                     {

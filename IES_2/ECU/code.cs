@@ -1,4 +1,4 @@
-﻿using System.IO.Ports;
+﻿using IES_2;
 using IES_2.Res;
 
 namespace IES_2.ECU
@@ -82,8 +82,8 @@ namespace IES_2.ECU
         {
             return true;
         }
-        public code(ref SerialPort sPort)
-            : base(ref sPort)
+        public code(ISerialTransport sPort)
+            : base(sPort)
         {
             engineData = new dataElement[] {
                 new dataElement(lang.ErrCnt, "#", "0", new byte[] { 0x73 }, new dataElement.ValDecode(CRDVAS)) };
