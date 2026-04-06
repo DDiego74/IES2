@@ -1,22 +1,23 @@
-﻿using System;
+﻿using IES_2.ECU;
+using IES_2.Properties;
+using IES_2.Res;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
+using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
-using System.Windows.Forms;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Diagnostics;
-using System.Collections;
-using System.Text.RegularExpressions;
-using System.Runtime.InteropServices;
-using System.IO;
-using ZedGraph;
-using IES_2.Properties;
-using IES_2.Res;
-using IES_2.ECU;
+using System.Windows.Forms;
+using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.Advertisement;
+using ZedGraph;
 
 namespace IES_2
 {
@@ -1282,7 +1283,7 @@ namespace IES_2
             // --- Wire up events AFTER all controls are created ---
             rbCOM.CheckedChanged += new EventHandler(rbCOM_CheckedChanged);
             rbBLE.CheckedChanged += new EventHandler(rbBLE_CheckedChanged);
-            btnScanBLE.Click += new EventHandler(btnScanBLE_Click);
+            btnScanBLE.Click += new EventHandler(async (s, e) => await btnScanBLE_Click(s, e));
             dgvBLE.CellClick += new DataGridViewCellEventHandler(dgvBLE_CellClick);
         }
 
@@ -1325,8 +1326,35 @@ namespace IES_2
             }
         }
 
-        private void btnScanBLE_Click(object sender, EventArgs e)
+        private async Task<bool> BLEAvailable()
         {
+            try
+            {
+                var selector = BluetoothAdapter.GetDeviceSelector();
+                var devices = await Windows.Devices.Enumeration.DeviceInformation.FindAllAsync(selector);
+                foreach (var device in devices)
+                {
+                    var adapter = await BluetoothAdapter.FromIdAsync(device.Id);
+                    if (adapter != null && adapter.IsLowEnergySupported)
+                        return true;
+                }
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private async Task btnScanBLE_Click(object sender, EventArgs e)
+        {
+
+            if (await BLEAvailable() == false)
+            {
+                MessageBox.Show("Bluetooth LE non è supportato su questo dispositivo.", "BLE non supportato", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
             if (bleWatcher != null && bleWatcher.Status == BluetoothLEAdvertisementWatcherStatus.Started)
             {
                 bleWatcher.Stop();
@@ -1374,8 +1402,21 @@ namespace IES_2
         private void BleWatcher_Stopped(BluetoothLEAdvertisementWatcher sender,
                                          BluetoothLEAdvertisementWatcherStoppedEventArgs args)
         {
-            BeginInvoke((Action)(() => btnScanBLE.Text = "Scansiona BLE"));
+            BeginInvoke((Action)(() =>
+            {
+                btnScanBLE.Text = "Scansiona BLE";
+                if (args.Error != BluetoothError.Success)
+                {
+                    string msg = $"BLE Watcher fermato con errore: {args.Error}";
+                    // In alternativa:
+                    MessageBox.Show(msg, "Errore BLE", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    // oppure log su Debug/Output:
+                    // System.Diagnostics.Debug.WriteLine(msg);
+                }
+            }));
         }
+
+
 
         private void dgvBLE_CellClick(object sender, DataGridViewCellEventArgs e)
         {
