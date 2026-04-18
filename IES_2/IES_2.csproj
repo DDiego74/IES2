@@ -17,10 +17,32 @@
     <NoWarn>CA1416;CS8981</NoWarn>
   </PropertyGroup>
 
+  <!-- Files now provided by IES_2.Core -->
+  <ItemGroup>
+    <Compile Remove="ISerialTransport.cs" />
+    <Compile Remove="DataStructs.cs" />
+    <Compile Remove="ECU\**" />
+    <Compile Remove="Res\lang.Designer.cs" />
+    <EmbeddedResource Remove="Res\lang.resx" />
+    <EmbeddedResource Remove="Res\lang.de.resx" />
+    <EmbeddedResource Remove="Res\lang.es.resx" />
+    <EmbeddedResource Remove="Res\lang.hr.resx" />
+    <EmbeddedResource Remove="Res\lang.hu.resx" />
+    <EmbeddedResource Remove="Res\lang.it.resx" />
+    <EmbeddedResource Remove="Res\lang.nl.resx" />
+    <EmbeddedResource Remove="Res\lang.pl.resx" />
+    <EmbeddedResource Remove="Res\lang.pt.resx" />
+    <EmbeddedResource Remove="Res\lang.sr.resx" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.5" /> -->
     <PackageReference Include="System.IO.Ports" Version="10.0.5" />
     <PackageReference Include="ZedGraph" Version="5.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IES_2.Core\IES_2.Core.csproj" />
   </ItemGroup>
 
 </Project>
