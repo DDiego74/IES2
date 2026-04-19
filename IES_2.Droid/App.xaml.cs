@@ -9,7 +9,7 @@ namespace IES_2.Droid
         public App(AppShell shell)
         {
             InitializeComponent();
-            _shell = shell;
+            _shell = shell; 
         }
 
         protected override Window CreateWindow(IActivationState activationState)
