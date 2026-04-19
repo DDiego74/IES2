@@ -1,4 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" rx="20" fill="#512BD4"/>
-  <text x="50" y="68" font-size="52" text-anchor="middle" fill="white" font-family="sans-serif">I</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!--
+    Splash screen image (centered on Color="#512BD4" background via .csproj BaseSize).
+    Uses the same "I2" geometric shapes as appiconfg.svg – no <text> element.
+  -->
+  <!-- Capital "I" -->
+  <rect x="14" y="38" width="40" height="9" rx="2" fill="white"/>
+  <rect x="29" y="47" width="10" height="34" rx="2" fill="white"/>
+  <rect x="14" y="81" width="40" height="9" rx="2" fill="white"/>
+  <!-- Numeral "2" -->
+  <rect x="74"  y="38" width="40" height="9" rx="4" fill="white"/>
+  <rect x="105" y="47" width="9"  height="19" rx="2" fill="white"/>
+  <rect x="74"  y="62" width="40" height="8" rx="2" fill="white"/>
+  <rect x="74"  y="70" width="9"  height="20" rx="2" fill="white"/>
+  <rect x="74"  y="81" width="40" height="9" rx="4" fill="white"/>
 </svg>

@@ -32,7 +32,8 @@
             <CollectionView ItemsSource="{Binding BleDevices}" HeightRequest="300" SelectionMode="None">
                 <CollectionView.ItemTemplate>
                     <DataTemplate>
-                        <Frame Padding="10" Margin="0,3" CornerRadius="8">
+                        <Border Padding="10" Margin="0,3" StrokeShape="RoundRectangle 8"
+                                Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
                             <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
                                 <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}"
                                        FontAttributes="Bold" VerticalOptions="Center"/>
@@ -44,7 +45,7 @@
                                         CommandParameter="{Binding .}"
                                         VerticalOptions="Center" Padding="12,6"/>
                             </Grid>
-                        </Frame>
+                        </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>

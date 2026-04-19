@@ -24,6 +24,7 @@ namespace IES_2.Droid
                       .AddLightTheme());
 
             builder.Services.AddSingleton<DiagnosticViewModel>();
+            builder.Services.AddSingleton<AppShell>();
             builder.Services.AddTransient<MainPage>();
             builder.Services.AddTransient<DiagPage>();
             builder.Services.AddTransient<GraphPage>();
