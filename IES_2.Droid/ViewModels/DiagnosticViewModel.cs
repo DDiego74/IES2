@@ -18,6 +18,7 @@ namespace IES_2.Droid
         // ── BLE ───────────────────────────────────────────────────────────────────
         [ObservableProperty] private bool isScanning;
         [ObservableProperty] private bool isConnected;
+        [ObservableProperty] private bool isConnecting;
         [ObservableProperty] private string statusMessage = "Pronto";
         [ObservableProperty] private string ecuInfo = "";
         [ObservableProperty] private string selectedParameterName;
@@ -97,21 +98,36 @@ namespace IES_2.Droid
         [RelayCommand]
         public async Task ConnectAsync(IDevice device)
         {
-            if (IsConnected) return;
+            if (IsConnected || IsConnecting) return;
+            IsConnecting  = true;
             StatusMessage = $"Connessione a {device.Name}…";
+            AppLogger.Log($"ConnectAsync: starting connection to \"{device.Name}\" [{device.Id}]");
             try
             {
+                AppLogger.Log("ConnectAsync: calling ConnectToDeviceAsync");
                 await _adapter.ConnectToDeviceAsync(device);
+                AppLogger.Log("ConnectAsync: BLE connected, opening UART transport");
+
+                StatusMessage = $"Apertura canale UART su {device.Name}…";
                 var transport = new AndroidBleTransport(device);
-                transport.Open();
-                _transport   = transport;
-                IsConnected  = true;
+                await transport.OpenAsync();
+                AppLogger.Log("ConnectAsync: transport open");
+
+                _transport    = transport;
+                IsConnected   = true;
                 StatusMessage = $"Connesso a {device.Name}";
+                AppLogger.Log("ConnectAsync: connection successful, starting ECU init");
                 await InitEcuAsync();
             }
             catch (Exception ex)
             {
+                AppLogger.LogError("ConnectAsync: exception during connection", ex);
                 StatusMessage = $"Errore connessione: {ex.Message}";
+                IsConnected   = false;
+            }
+            finally
+            {
+                IsConnecting = false;
             }
         }
 
@@ -143,16 +159,30 @@ namespace IES_2.Droid
         private async Task InitEcuAsync()
         {
             StatusMessage = "Inizializzazione ECU…";
+            AppLogger.Log("InitEcuAsync: starting passive diagnostic init");
             await Task.Run(() =>
             {
                 try
                 {
+                    AppLogger.Log("InitEcuAsync: calling ecu.InitPasvDiag");
                     bool ok = ecu.InitPasvDiag(_transport);
-                    if (!ok) { StatusMessage = "Inizializzazione fallita"; return; }
+                    if (!ok)
+                    {
+                        AppLogger.LogWarning("InitEcuAsync: InitPasvDiag returned false");
+                        MainThread.BeginInvokeOnMainThread(() => StatusMessage = "Inizializzazione fallita");
+                        return;
+                    }
 
+                    AppLogger.Log("InitEcuAsync: InitPasvDiag OK, detecting ECU type");
                     _ecu = DetectEcu();
-                    if (_ecu == null) { StatusMessage = "Tipo ECU non riconosciuto"; return; }
+                    if (_ecu == null)
+                    {
+                        AppLogger.LogWarning($"InitEcuAsync: ECU not recognised (ISO={ecu.ISO})");
+                        MainThread.BeginInvokeOnMainThread(() => StatusMessage = "Tipo ECU non riconosciuto");
+                        return;
+                    }
 
+                    AppLogger.Log($"InitEcuAsync: ECU detected – {_ecu.GetCarModel()} [ISO={ecu.ISO}]");
                     MainThread.BeginInvokeOnMainThread(() =>
                     {
                         EcuInfo       = $"{_ecu.GetCarModel()} [{ecu.ISO}]";
@@ -163,6 +193,7 @@ namespace IES_2.Droid
                 }
                 catch (Exception ex)
                 {
+                    AppLogger.LogError("InitEcuAsync: exception", ex);
                     MainThread.BeginInvokeOnMainThread(() => StatusMessage = $"Errore ECU: {ex.Message}");
                 }
             });
@@ -170,8 +201,10 @@ namespace IES_2.Droid
 
         private ecu DetectEcu()
         {
+            AppLogger.Log("DetectEcu: reading ISO code");
             // Read ISO code once
             ecu.ReadISO(_transport);
+            AppLogger.Log($"DetectEcu: ISO={ecu.ISO}");
 
             // Candidate ECU types in priority order
             var candidates = new (string typeName, Func<bool> checkISO, Func<bool> checkCODRIC)[]
@@ -186,7 +219,12 @@ namespace IES_2.Droid
 
             foreach (var (typeName, checkISO, _) in candidates)
             {
-                if (!checkISO()) continue;
+                AppLogger.Log($"DetectEcu: checking {typeName}");
+                bool match = false;
+                try { match = checkISO(); }
+                catch (Exception ex) { AppLogger.LogError($"DetectEcu: exception checking {typeName}", ex); }
+                if (!match) continue;
+                AppLogger.Log($"DetectEcu: matched {typeName}");
                 return typeName switch
                 {
                     "iaw16f"   => new iaw16f(_transport),
@@ -198,6 +236,7 @@ namespace IES_2.Droid
                     _          => null
                 };
             }
+            AppLogger.LogWarning("DetectEcu: no ECU type matched");
             return null;
         }
 

@@ -37,44 +37,75 @@ namespace IES_2.Droid
             PortName = device.Name ?? device.Id.ToString();
         }
 
+        /// <summary>
+        /// Synchronous wrapper kept for ISerialTransport compatibility.
+        /// Prefer <see cref="OpenAsync"/> when calling from an async context
+        /// to avoid blocking the calling thread.
+        /// </summary>
         public void Open() => Task.Run(OpenAsync).GetAwaiter().GetResult();
 
-        private async Task OpenAsync()
+        /// <summary>
+        /// Async version of <see cref="Open"/>. Use this from async code paths
+        /// to avoid deadlocking the Android main thread.
+        /// </summary>
+        public async Task OpenAsync()
         {
+            AppLogger.Log($"BLE OpenAsync: discovering services on \"{PortName}\"");
             ICharacteristic foundTx = null, foundRx = null;
 
             // --- Try Nordic NUS ---
+            AppLogger.Log("BLE OpenAsync: trying Nordic NUS service (6E400001)");
             var nusSvc = await _device.GetServiceAsync(NUS_SERVICE).ConfigureAwait(false);
             if (nusSvc != null)
             {
+                AppLogger.Log("BLE OpenAsync: NUS service found, reading characteristics");
                 foundTx = await nusSvc.GetCharacteristicAsync(NUS_TX).ConfigureAwait(false);
                 foundRx = await nusSvc.GetCharacteristicAsync(NUS_RX).ConfigureAwait(false);
+                AppLogger.Log($"BLE OpenAsync: NUS TX={foundTx != null}, RX={foundRx != null}");
+            }
+            else
+            {
+                AppLogger.Log("BLE OpenAsync: NUS service not found");
             }
 
             // --- Fallback to 0xFFF0 UART (common cheap dongles) ---
             if (foundTx == null || foundRx == null)
             {
+                AppLogger.Log("BLE OpenAsync: trying UART 0xFFF0 service");
                 var uartSvc = await _device.GetServiceAsync(UART_SERVICE).ConfigureAwait(false);
                 if (uartSvc != null)
                 {
+                    AppLogger.Log("BLE OpenAsync: UART 0xFFF0 service found, reading characteristics");
                     foundTx = await uartSvc.GetCharacteristicAsync(UART_TX).ConfigureAwait(false);
                     foundRx = await uartSvc.GetCharacteristicAsync(UART_RX).ConfigureAwait(false);
+                    AppLogger.Log($"BLE OpenAsync: UART TX={foundTx != null}, RX={foundRx != null}");
+                }
+                else
+                {
+                    AppLogger.Log("BLE OpenAsync: UART 0xFFF0 service not found");
                 }
             }
 
             if (foundTx == null || foundRx == null)
-                throw new IOException($"Servizio UART BLE non trovato su \"{PortName}\". Verificare che il dispositivo supporti NUS (6E400001) o il servizio 0xFFF0.");
+            {
+                string msg = $"Servizio UART BLE non trovato su \"{PortName}\". Verificare che il dispositivo supporti NUS (6E400001) o il servizio 0xFFF0.";
+                AppLogger.LogError($"BLE OpenAsync: {msg}");
+                throw new IOException(msg);
+            }
 
+            AppLogger.Log("BLE OpenAsync: subscribing to RX notifications");
             foundRx.ValueUpdated += OnRxValueUpdated;
             await foundRx.StartUpdatesAsync().ConfigureAwait(false);
 
             _txChar = foundTx;
             _rxChar = foundRx;
             _isOpen = true;
+            AppLogger.Log($"BLE OpenAsync: transport open on \"{PortName}\"");
         }
 
         public void Close()
         {
+            AppLogger.Log($"BLE Close: closing transport on \"{PortName}\"");
             _isOpen = false;
             if (_rxChar != null)
             {
