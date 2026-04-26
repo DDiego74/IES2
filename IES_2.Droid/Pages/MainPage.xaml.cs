@@ -11,8 +11,8 @@ namespace IES_2.Droid
             InitializeComponent();
             _vm            = vm;
             BindingContext = vm;
-            Resources.Add("ScanBtnTextConverter",  new ScanBtnTextConverter());
-            Resources.Add("InvertBoolConverter",   new InvertBoolConverter());
+            //Resources.Add("ScanBtnTextConverter",  new ScanBtnTextConverter());
+            //Resources.Add("InvertBoolConverter",   new InvertBoolConverter());
         }
 
         protected override async void OnAppearing()

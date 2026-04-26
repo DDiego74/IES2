@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:IES_2.Droid"
              x:Class="IES_2.Droid.DiagPage"
-             Title="Parametri Live">
+             Title="Parametri Live"
+             BackgroundColor="White">
 
     <Grid RowDefinitions="*,Auto">
 
