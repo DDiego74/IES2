@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:IES_2.Droid"
+             x:Class="IES_2.Droid.DiagPage"
+             Title="Parametri Live"
+             BackgroundColor="White">
+
+    <Grid RowDefinitions="*,Auto">
+
+        <CollectionView Grid.Row="0" ItemsSource="{Binding Parameters}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:DiagnosticViewModel+ParameterItem">
+                    <Grid ColumnDefinitions="*,90,50" Padding="12,6">
+                        <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center"/>
+                        <Label Grid.Column="1" Text="{Binding Value}" FontAttributes="Bold"
+                               HorizontalTextAlignment="End" VerticalOptions="Center"/>
+                        <Label Grid.Column="2" Text="{Binding Unit}" TextColor="{StaticResource Gray500}"
+                               HorizontalTextAlignment="Start" VerticalOptions="Center" Margin="4,0,0,0"/>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Label Grid.Row="1" Text="{Binding StatusMessage}" Padding="12,6"
+               TextColor="{StaticResource Gray500}" FontSize="12"/>
+
+    </Grid>
+</ContentPage>

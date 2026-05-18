@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       x:Class="IES_2.Droid.AppShell"
+       Title="IAW Scan 2"
+       BackgroundColor="White"
+       FlyoutBehavior="Disabled">
+    <!--
+        ContentTemplate is intentionally absent: pages are resolved from the DI
+        container in the code-behind constructor and assigned as Content.
+        Using DataTemplate would call Activator.CreateInstance and bypass DI,
+        which crashes at runtime because the page constructors require injection.
+    -->
+    <TabBar>
+        <ShellContent x:Name="contentMain"  Title="Connessione" Route="MainPage" />
+        <ShellContent x:Name="contentDiag"  Title="Parametri"   Route="DiagPage" />
+        <ShellContent x:Name="contentGraph" Title="Grafici"     Route="GraphPage" />
+    </TabBar>   
+</Shell>
